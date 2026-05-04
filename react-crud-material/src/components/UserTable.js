@@ -45,12 +45,6 @@ export default function UserTable({
     flex: 1.5,            // 👈 give more space than name
     minWidth: 200
   },
-  { 
-    field: "email", 
-    headerName: "Email", 
-    flex: 1.5,            // 👈 give more space than name
-    minWidth: 200
-  },
 
   {
     field: "actions",

@@ -1,40 +1,11 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3001/users";
-
-/* ===========================
-   DTO + RESPONSE DTO (INLINE)
-   =========================== */
-
-// 👉 Request DTO
-const UserDTO = {
-  toRequest: (user) => ({
-    name: user.name,
-    email: user.email
-  })
-};
-
-// 👉 Response DTO
-const UserResponseDTO = {
-  fromResponse: (user) => ({
-    id: user.id,
-    name: user.name,
-    email: user.email
-  }),
-
-  fromList: (users = []) =>
-    users.map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email
-    }))
-};
-
-/* ===========================
-   ERROR HANDLING
-   =========================== */
+const API_URL = "http://localhost:8080/users";
 
 const handleError = (error) => {
+  if (axios.isCancel && axios.isCancel(error)) {
+    throw new Error("Request Cancelled");
+  }
   if (error.name === "CanceledError") {
     throw new Error("Request Cancelled");
   }
@@ -47,35 +18,25 @@ const handleError = (error) => {
   throw new Error(error.message);
 };
 
-/* ===========================
-   API METHODS
-   =========================== */
-
 export const getUsers = async (page, limit, signal) => {
   try {
     const res = await axios.get(
-      `${API_URL}?_page=${page}&_limit=${limit}`,
+      `${API_URL}?page=${page - 1}&size=${limit}`, // 👈 fix index
       { signal }
     );
 
-    console.log("RAW:", res.data);
-
     return {
-      data: UserResponseDTO.fromList(res.data), // ✅ array mapping
-      total: res.headers["x-total-count"] || res.data.length
+      data: res.data.content,              // ✅ actual list
+      total: res.data.totalElements        // ✅ correct total
     };
   } catch (e) {
     handleError(e);
-    return { data: [], total: 0 };
   }
 };
 
 export const createUser = async (user, signal) => {
   try {
-    const dto = UserDTO.toRequest(user);
-
-    const res = await axios.post(API_URL, dto, { signal });
-    return UserResponseDTO.fromResponse(res.data);
+    return (await axios.post(API_URL, user, { signal })).data;
   } catch (e) {
     handleError(e);
   }
@@ -83,11 +44,7 @@ export const createUser = async (user, signal) => {
 
 export const updateUser = async (id, user, signal) => {
   try {
-    const dto = UserDTO.toRequest(user);
-
-    const res = await axios.put(`${API_URL}/${id}`, dto, { signal });
-
-    return UserResponseDTO.fromResponse(res.data);
+    return (await axios.put(`${API_URL}/${id}`, user, { signal })).data;
   } catch (e) {
     handleError(e);
   }

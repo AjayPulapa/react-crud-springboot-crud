@@ -1,15 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Container, Typography } from "@mui/material";
 import UserForm from "../components/UserForm";
 import UserTable from "../components/UserTable";
 import Loader from "../components/Loader";
 import ConfirmDialog from "../components/ConfirmDialog";
-import {
-  getUsers,
-  createUser,
-  updateUser,
-  deleteUser
-} from "../api/userService";
+import {getUsers, createUser, updateUser, deleteUser} from "../api/userService";
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -19,46 +14,47 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const controllerRef = useRef(null);
   const rowsPerPage = 5;
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      setLoading(true);
-      try {
-        const res = await getUsers(page, rowsPerPage);
-        setUsers(res?.data || []);
-        setTotal(res?.total || 0);
-      } catch (e) {
-        console.error("LOAD ERROR:", e.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUsers();
-  }, [page]);
-
-  // Load Users
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    controllerRef.current = controller;
     setLoading(true);
     try {
-      const res = await getUsers(page, rowsPerPage);
-      setUsers(res?.data || []);
+      const res = await getUsers(page, rowsPerPage, controller.signal);
+      console.log("API RESPONSE:", res);
+      setUsers(res?.data || []);   
       setTotal(res?.total || 0);
     } catch (e) {
-      console.error("LOAD ERROR:", e.message);
+      if (e.message !== "Request Cancelled") {
+        console.error("LOAD ERROR:", e.message);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rowsPerPage]);
 
-  // Save (Create / Update)
+  useEffect(() => {
+    loadUsers();
+    return () => controllerRef.current?.abort();
+  }, [loadUsers]);
+
   const handleSave = async (user) => {
+    console.log("Inside save:", user);
+
+    const controller = new AbortController();
     try {
       if (selectedUser) {
-        await updateUser(selectedUser.id, user);
+        console.log("Updating user...");
+        await updateUser(selectedUser.id, user, controller.signal);
       } else {
-        await createUser(user);
+        console.log("Creating user...");
+        await createUser(user, controller.signal);
       }
+
       setSelectedUser(null);
       loadUsers();
     } catch (e) {
@@ -66,33 +62,29 @@ export default function UsersPage() {
     }
   };
 
-  // Delete directly (no deleteId state)
   const handleDeleteClick = (id) => {
-  console.log("Deleting Id:", id);
-  setDeleteId(id);
-  setConfirmOpen(true);
-};
+    setDeleteId(id);
+    setConfirmOpen(true);
+  };
 
- const handleConfirmDelete = async () => {
-  try {
-    await deleteUser(deleteId);
-    loadUsers();
-  } catch (e) {
-    console.error("DELETE ERROR:", e.message);
-  } finally {
-    setConfirmOpen(false);
-    setDeleteId(null); // cleanup
-  }
-};
+  const handleConfirmDelete = async () => {
+    const controller = new AbortController();
+    try {
+      await deleteUser(deleteId, controller.signal);
+      loadUsers();
+    } catch (e) {
+      console.error("DELETE ERROR:", e.message);
+    } finally {
+      setConfirmOpen(false);
+    }
+  };
 
   return (
     <Container>
       <Typography variant="h4" gutterBottom sx={{ mt: 4 }}>
         CRUD OPERATIONS
       </Typography>
-
       <UserForm selectedUser={selectedUser} onSave={handleSave} />
-
       {loading ? (
         <Loader />
       ) : (
@@ -106,7 +98,6 @@ export default function UsersPage() {
           onPageChange={setPage}
         />
       )}
-
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
