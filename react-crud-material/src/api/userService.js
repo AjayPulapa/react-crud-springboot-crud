@@ -1,53 +1,36 @@
-import axios from "axios";
+import axiosInstance from "./axiosInstance";
 
-const API_URL = "http://localhost:8080/users";
-
-const handleError = (error) => {
-  if (error.response) {
-    throw new Error("Server Error");
-  }
-  if (error.request) {
-    throw new Error("Network Error");
-  }
-  throw new Error(error.message);
+// ✅ Get ALL users
+export const getUsers = async () => {
+  const res = await axiosInstance.get("/users");
+  return res.data.content; // Spring Boot Page OR full list
 };
 
-export const getUsers = async (page, limit) => {
-  try {
-    const res = await axios.get(
-      `${API_URL}?page=${page - 1}&size=${limit}`
-    );
+// ✅ Server Pagination (optional)
+export const getUsersPagination = async (page, limit) => {
+  const res = await axiosInstance.get("/users", {
+    params: {
+      page: page - 1,
+      size: limit
+    }
+  });
 
-    return {
-      data: res.data.content,
-      total: res.data.totalElements
-    };
-  } catch (e) {
-    handleError(e);
-  }
+  return {
+    data: res.data.content,
+    total: res.data.totalElements
+  };
 };
 
 export const createUser = async (user) => {
-  try {
-    return (await axios.post(API_URL, user)).data;
-  } catch (e) {
-    handleError(e);
-  }
+  const res = await axiosInstance.post("/users", user);
+  return res.data;
 };
 
 export const updateUser = async (id, user) => {
-  try {
-    return (await axios.put(`${API_URL}/${id}`, user)).data;
-  } catch (e) {
-    handleError(e);
-  }
+  const res = await axiosInstance.put(`/users/${id}`, user);
+  return res.data;
 };
 
 export const deleteUser = async (id) => {
-  console.log(id);  
-  try {
-    await axios.delete(`${API_URL}/${id}`);
-  } catch (e) {
-    handleError(e);
-  }
+  await axiosInstance.delete(`/users/${id}`);
 };

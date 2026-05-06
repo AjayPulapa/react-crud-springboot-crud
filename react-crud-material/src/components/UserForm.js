@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 export default function UserForm({ selectedUser, onSave }) {
   const [form, setForm] = useState({ name: "", email: "" });
 
-  // ✅ Handle edit + reset
   useEffect(() => {
     if (selectedUser) {
       setForm({
@@ -29,19 +28,11 @@ export default function UserForm({ selectedUser, onSave }) {
       alert("Please enter name and email");
       return;
     }
-    console.log("Submitting:", form);
     onSave(form);
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        gap: 2,
-        flexWrap: "wrap",
-        mb: 2
-      }}
-    >
+    <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
       <TextField
         label="Name"
         name="name"

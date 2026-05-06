@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { Container, Typography, TextField, InputAdornment,Box } from "@mui/material";
+import { Container, Typography } from "@mui/material";
 import UserForm from "../components/UserForm";
 import UserTable from "../components/UserTable";
 import Loader from "../components/Loader";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { Search } from "@mui/icons-material";
-
 import {
   getUsers,
   createUser,
@@ -15,24 +13,37 @@ import {
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const [searchText, setSearchText] = useState("");
-  const [page, setPage] = useState(0);
-  const rowsPerPage = 5;
-
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const rowsPerPage = 5;
 
-  // ✅ Load all users once
+  useEffect(() => {
+    const loadUsers = async () => {
+      setLoading(true);
+      try {
+        const res = await getUsers(page, rowsPerPage);
+        setUsers(res?.data || []);
+        setTotal(res?.total || 0);
+      } catch (e) {
+        console.error("LOAD ERROR:", e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUsers();
+  }, [page]);
+
+  // Load Users
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await getUsers();
-      setUsers(res || []);
-      setFilteredUsers(res || []);
+      const res = await getUsers(page, rowsPerPage);
+      setUsers(res?.data || []);
+      setTotal(res?.total || 0);
     } catch (e) {
       console.error("LOAD ERROR:", e.message);
     } finally {
@@ -40,21 +51,7 @@ export default function UsersPage() {
     }
   };
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  // ✅ Global Search
-  useEffect(() => {
-    const filtered = users.filter((u) =>
-      u.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchText.toLowerCase())
-    );
-    setFilteredUsers(filtered);
-    setPage(0);
-  }, [searchText, users]);
-
-  // ✅ Save (Create / Update)
+  // Save (Create / Update)
   const handleSave = async (user) => {
     try {
       if (selectedUser) {
@@ -69,23 +66,24 @@ export default function UsersPage() {
     }
   };
 
-  // ✅ Delete
+  // Delete directly (no deleteId state)
   const handleDeleteClick = (id) => {
-    setDeleteId(id);
-    setConfirmOpen(true);
-  };
+  console.log("Deleting Id:", id);
+  setDeleteId(id);
+  setConfirmOpen(true);
+};
 
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteUser(deleteId);
-      loadUsers();
-    } catch (e) {
-      console.error("DELETE ERROR:", e.message);
-    } finally {
-      setConfirmOpen(false);
-      setDeleteId(null);
-    }
-  };
+ const handleConfirmDelete = async () => {
+  try {
+    await deleteUser(deleteId);
+    loadUsers();
+  } catch (e) {
+    console.error("DELETE ERROR:", e.message);
+  } finally {
+    setConfirmOpen(false);
+    setDeleteId(null); // cleanup
+  }
+};
 
   return (
     <Container>
@@ -95,31 +93,15 @@ export default function UsersPage() {
 
       <UserForm selectedUser={selectedUser} onSave={handleSave} />
 
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-  <TextField
-    placeholder="Search..."
-    size="small"
-    value={searchText}
-    onChange={(e) => setSearchText(e.target.value)}
-    sx={{ width: 250 }}
-    InputProps={{
-      startAdornment: (
-        <InputAdornment position="start">
-          <Search />
-        </InputAdornment>
-      )
-    }}
-  />
-</Box>
-
       {loading ? (
         <Loader />
       ) : (
         <UserTable
-          users={filteredUsers}
+          users={users}
           onEdit={setSelectedUser}
           onDelete={handleDeleteClick}
           page={page}
+          total={total}
           rowsPerPage={rowsPerPage}
           onPageChange={setPage}
         />
